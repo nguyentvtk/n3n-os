@@ -176,7 +176,7 @@ class TaskStore:
     def _tx(self) -> None:
         self._db.execute("BEGIN IMMEDIATE")
 
-    def ensure_board(self, brain_root: str, orchestration: str = "off") -> None:
+    def ensure_board(self, brain_root: str, orchestration: str = "auto") -> None:
         ts = now()
         with self._lock:
             self._db.execute(
