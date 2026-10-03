@@ -21,4 +21,4 @@ Trang này tổng hợp các chuẩn nghiệp vụ và quy trình mà n3n OS áp
 * Đối chiếu khối lượng thanh toán thực tế với hồ sơ thiết kế bản vẽ thi công đã duyệt.
 * Cảnh báo sớm các vướng mắc về giải phóng mặt bằng (GPMB) và di dời hạ tầng kỹ thuật.
 
-*Cập nhật tự động: 03/10/2026 09:10:49*
+*Cập nhật tự động: 03/10/2026 09:20:50*
