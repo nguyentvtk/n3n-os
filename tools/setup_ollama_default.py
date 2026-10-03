@@ -46,14 +46,14 @@ def setup_ollama_config():
         "model": {
             "main": {
                 "provider": "ollama-local",
-                "model": "qwen2.5:32b"
+                "model": "qwen2.5:14b"
             },
             "auxiliary": {
                 "model": "qwen2.5:14b"
             },
             "telegram": {
                 "provider": "ollama-local",
-                "model": "qwen2.5:32b"
+                "model": "qwen2.5:14b"
             },
             "gia_goi_thang_usd": 0,
             "ngan_sach_thang_usd": 0,

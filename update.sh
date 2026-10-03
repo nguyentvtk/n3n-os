@@ -1,24 +1,10 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Javis OS - cập nhật lên bản mới nhất từ GitHub.
-#   ./update.sh            (tự nhận Docker hay native)
-#   ./update.sh docker     (ép chế độ Docker)
-#   ./update.sh native     (ép chế độ native/systemd)
+# n3n OS - cập nhật phiên bản từ upstream & tự động push GitHub & sync Wiki
 # ============================================================================
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
-MODE="${1:-auto}"
-SUDO=""; [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1 && SUDO="sudo"
-
-# Tên bản Javis Ở THƯ MỤC NÀY. Nhiều bản trên cùng VPS thì mỗi bản một .env riêng; không đọc
-# .env ở đây thì `./update.sh` của bản này đi restart container/dịch vụ của bản khác.
-if [ -z "${JAVIS_NAME:-}" ] && [ -f .env ]; then
-  JAVIS_NAME="$(sed -n 's/^[[:space:]]*JAVIS_NAME[[:space:]]*=[[:space:]]*//p' .env | tail -1)"
-fi
-NAME="${JAVIS_NAME:-javis}"
-
-echo "==> Kéo code mới từ GitHub..."
-git pull --ff-only
+exec bash "bin/n3n-update.sh" "$@"
 
 is_docker() {
   command -v docker >/dev/null 2>&1 && [ -f docker-compose.yml ] && \

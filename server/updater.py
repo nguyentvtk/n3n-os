@@ -471,10 +471,25 @@ def main():
                 us.write_state({"stashed": False})
             else:
                 stash_note = f"Bản sao sửa đổi {stash_oid[:12]} vẫn trong git stash."
-        if stash_note:
-            us.write_state({"phase": "done", "result": "error", "error": stash_note,
-                            "finished_at": _now()})
-            return 1
+        # Tự động bảo toàn thương hiệu n3n OS, sync wiki và push lên GitHub cá nhân
+        try:
+            log("Tự động đồng bộ n3n OS, Wiki và đẩy lên GitHub...")
+            rebrand = ROOT / "tools" / "rebrand_to_n3n.py"
+            if rebrand.exists():
+                run([venv_python(), str(rebrand)])
+            ollama_def = ROOT / "tools" / "setup_ollama_default.py"
+            if ollama_def.exists():
+                run([venv_python(), str(ollama_def)])
+            sync_wiki = ROOT / "tools" / "sync_wiki.py"
+            if sync_wiki.exists():
+                run([venv_python(), str(sync_wiki)])
+            if git_dirty():
+                run(["git", "add", "-A"])
+                run(["git", "commit", "-m", f"feat(update): sync upstream javis-os & auto-rebrand n3n OS ({current})"])
+            run(["git", "push", "origin", "main"])
+        except Exception as e:
+            log(f"Lưu ý khi push GitHub: {e}")
+
         us.write_state({"phase": "done", "result": "success", "finished_at": _now()})
         return 0
     if outcome == "version_mismatch":

@@ -1497,6 +1497,16 @@ class LearnFeature:
                     st = cfg.setdefault("_state", {})
                     st["fork_count"] = int(st.get("fork_count", 0)) + 1
                     st["last_fork_ts"] = time.time()
+                    # Tự động đồng bộ tri thức tự học sang GitHub Wiki trong nền
+                    try:
+                        import subprocess
+                        sync_script = Path(__file__).resolve().parent.parent / "tools" / "sync_wiki.py"
+                        if sync_script.exists():
+                            subprocess.Popen([sys.executable, str(sync_script)],
+                                             cwd=str(sync_script.parent.parent),
+                                             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0)
+                    except Exception:
+                        pass
             return rep
         finally:
             lock.release()
