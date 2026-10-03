@@ -28,5 +28,4 @@ for _ in $(seq 1 30); do
   sleep 1
   if curl -sf -o /dev/null "${URL}/" 2>/dev/null; then break; fi
 done
-open "${URL}" 2>/dev/null || true
-echo "n3n OS đã khởi động tại ${URL}"
+open "${URL}"

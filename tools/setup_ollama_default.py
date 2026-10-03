@@ -92,7 +92,7 @@ def setup_ollama_config():
         json.dump(settings, f, ensure_ascii=False, indent=2)
 
     print(f"Đã tạo cấu hình sẵn sàng tại: {SETTINGS_PATH}")
-    print("Main Model: qwen2.5:32b (Ollama Local)")
+    print("Main Model: qwen2.5:14b (Ollama Local)")
     print("Background Model: qwen2.5:14b (Ollama Local)")
     print("Endpoint: http://127.0.0.1:11434")
 
