@@ -13474,6 +13474,23 @@ async def websocket_endpoint(ws: WebSocket):
             final_text = ""
             used_fast_path = False
 
+            # Intercept tự động ingest tài liệu nếu có file đính kèm
+            try:
+                import auto_ingest
+                _ing_ok, _ing_prompt, _ing_files = await asyncio.to_thread(
+                    auto_ingest.perform_auto_ingest_and_build_prompt,
+                    user_message, _brain_root(brain)
+                )
+                if _ing_ok:
+                    user_message = _ing_prompt
+                    await ws.send_text(json.dumps({
+                        "type": "tool_call",
+                        "tool": "n3n_auto_ingest",
+                        "content": f"⚙ Đã tự động lưu {len(_ing_files)} tài liệu vào Sources & Attachments"
+                    }))
+            except Exception as _e_ing:
+                print(f"[auto_ingest] {_e_ing}", file=sys.stderr)
+
             await ws.send_text(json.dumps({
                 "type": "status",
                 "content": localefmt.chu("Javis đang suy nghĩ...", "Javis is thinking...")
