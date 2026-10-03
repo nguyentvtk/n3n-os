@@ -9,4 +9,4 @@
 * Tích hợp Bot Zalo cá nhân & nhóm Zalo thông qua **Hermes Agent** và **n3n Bridge**.
 * Cán bộ quản lý có thể gửi câu hỏi bằng giọng nói hoặc tin nhắn văn bản, hệ thống đọc trực tiếp từ Brain dự án để trả lời tức thì.
 
-*Cập nhật tự động: 03/10/2026 09:20:50*
+*Cập nhật tự động: 03/10/2026 09:51:48*
