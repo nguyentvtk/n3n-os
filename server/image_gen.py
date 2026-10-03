@@ -158,7 +158,7 @@ def _attachments_dir(vault: Path) -> Path:
     return d
 
 
-BRAND_SOFTWARE = "Javis OS"
+BRAND_SOFTWARE = "n3n OS"
 BRAND_SOURCE = "https://javisos.com"
 
 

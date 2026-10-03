@@ -234,6 +234,17 @@ def ev_loi_exc(nhan, exc):
     Lỗi lập trình (JSON hỏng, thiếu khoá, sai kiểu) chạy lại bao nhiêu lần cũng hỏng y hệt,
     và mỗi lần chạy lại là một lượt gọi model thật đã trả tiền.
     """
+    is_read_timeout = isinstance(exc, httpx.ReadTimeout)
+    is_local_ollama = "ollama" in str(nhan).lower() or "local" in str(nhan).lower()
+
+    if is_read_timeout and is_local_ollama:
+        msg = (
+            f"{nhan}: Xử lý quá thời gian chờ (ReadTimeout). "
+            f"Nguyên nhân: Model lớn hoặc tài liệu dài vượt thời gian xử lý của Ollama. "
+            f"Gợi ý: Hãy chọn model nhẹ hơn cho Việc nền (như qwen2.5:14b) để chạy 100% trên GPU."
+        )
+        return {"type": "error", "content": msg, "tam_thoi": False}
+
     ev = {"type": "error", "content": f"{nhan}: {_describe_exc(exc)}"}
     if isinstance(exc, _RETRY_EXC):
         ev["tam_thoi"] = True
@@ -606,7 +617,8 @@ async def _openai_compat_stream(url, label, api_key, model, messages, reasoning,
     if reasoning not in (None, "", "off") and send_reasoning:
         payload["reasoning_effort"] = api_effort(reasoning)
     try:
-        timeout = httpx.Timeout(120.0, connect=15.0)
+        timeout_val = 600.0 if ("11434" in str(url) or "ollama" in str(label).lower()) else 120.0
+        timeout = httpx.Timeout(timeout_val, connect=30.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream("POST", url, headers=headers, json=payload) as r:
                 if r.status_code != 200:
@@ -904,7 +916,8 @@ async def single_tool_plan(provider, api_key, model, messages, reasoning, tool_s
               (provider == "gemini" and _gemini_is_reasoning(model))):
             payload["reasoning_effort"] = api_effort(reasoning)
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
+        timeout_val = 600.0 if ("11434" in str(url) or "ollama" in str(provider).lower()) else 120.0
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_val, connect=30.0)) as client:
             response = await client.post(url, headers=headers, json=payload)
         if response.status_code != 200:
             return {"status": "error", "error_code": f"provider_http_{response.status_code}",
@@ -1598,7 +1611,8 @@ async def _cc_tool_loop(url, headers, model, messages, mcp_tools, mcp_route, rea
             )
         payload.update(reasoning_extra or {})
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(180, connect=15)) as client:
+            timeout_val = 600.0 if ("11434" in str(url) or "ollama" in str(label).lower()) else 180.0
+            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_val, connect=30.0)) as client:
                 r = await client.post(url, headers=headers, json=payload)
                 # Một số endpoint OpenAI-compatible chỉ nhận "required", không nhận named choice.
                 if (r.status_code in (400, 422) and requirement_pending

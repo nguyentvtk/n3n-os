@@ -153,7 +153,7 @@ import voice_turn_protocol
 import voice_brain   # Voice V2: bộ não giọng nói riêng (Antigravity sống lâu / Groq / Gemini...)
 import voice_live    # Voice V2: nghe nói thẳng qua Gemini Live / OpenAI Realtime
 
-app = FastAPI(title="Javis OS")
+app = FastAPI(title="n3n OS")
 _CHAT_RUNTIME = ChatRuntime()
 ui_bridge.attach(_CHAT_RUNTIME)
 _CONTEXT_RUNTIME = context_runtime.get_runtime()
@@ -1441,7 +1441,7 @@ async def auth_2fa_start(request: Request):
     _TOTP_CHO.clear()
     _TOTP_CHO.update(secret=secret, ts=time.time())
     uri = totp.otpauth_uri(secret, _ten_hien_thi(cfg),
-                           cfg.get("workspace_name") or "Javis OS")
+                           cfg.get("workspace_name") or "n3n OS")
     return {"ok": True, "secret": secret, "uri": uri, "qr_svg": totp.qr_svg(uri)}
 
 
@@ -4432,7 +4432,7 @@ async def settings_set(section: str = Form(...), data: str = Form("{}")):
             lc["currency"] = str(patch["currency"] or "").strip().upper() or "VND"
     elif section == "general":
         if "workspace_name" in patch:
-            cfg["workspace_name"] = patch["workspace_name"] or "Javis OS"
+            cfg["workspace_name"] = patch["workspace_name"] or "n3n OS"
         if "setup_done" in patch:
             cfg["setup_done"] = bool(patch["setup_done"])
     elif section == "model":
@@ -5372,8 +5372,11 @@ async def ingest_upload(
     attachments: str = Form(""), kind: str = Form("file"), name: str = Form(""),
 ):
     """Dùng Claude CLI biến file staged thành .md nguồn: text→trích, ảnh→mô tả."""
-    cli = claude_engine(system_prompt=SYSTEM_PROMPT, cwd=CLAUDE_CWD)
-    cli = _aux_swap(cli, mode="auto", tag="ingest")   # việc nền: theo model phụ đã chọn
+    vault_root = str(Path(sources).parent) if sources else None
+    cli = claude_engine(system_prompt=SYSTEM_PROMPT, cwd=vault_root or CLAUDE_CWD)
+    if vault_root:
+        cli.javis_vault = vault_root
+    cli = _aux_swap(cli, mode="full", tag="ingest")   # việc nền: theo model phụ đã chọn
     if not cli.is_available():
         return {"ok": False, "error": "Engine việc nền chưa sẵn sàng (kiểm tra trang Model)"}
     slug = _sanitize_filename(os.path.splitext(name)[0]) or "source"
@@ -5402,18 +5405,106 @@ async def ingest_upload(
         )
 
     final = ""
-    async for ev in cli.query(prompt):
-        if ev["type"] == "final":
-            final = ev.get("content", "")
-        elif ev["type"] == "error":
-            return {"ok": False, "error": ev["content"][:200]}
+    error_msg = ""
+    try:
+        async for ev in cli.query(prompt):
+            if ev["type"] == "final":
+                final = ev.get("content", "")
+            elif ev["type"] == "error":
+                error_msg = str(ev.get("content") or "")
+                break
+    except Exception as q_err:
+        error_msg = str(q_err)
 
     m = re.search(r"[A-Za-z]:\\[^\n\"]+\.md|/[^\n\"]+\.md", final)
     md_path = m.group(0).strip() if m else os.path.join(sources, f"{slug}.md")
     if os.path.exists(md_path):
         return {"ok": True, "md_path": md_path, "md_name": os.path.basename(md_path),
                 "folder": os.path.basename(sources)}
-    return {"ok": False, "error": "Không tạo được .md", "raw": final[:200]}
+
+    # CỨU NGUY TRỰC TIẾP: Trích xuất nội dung trực tiếp từ file staged nếu AI không tạo file hoặc lỗi
+    try:
+        staged_p = Path(staged)
+        if not staged_p.is_file():
+            alt_p = Path(STAGING) / Path(staged).name
+            if alt_p.is_file():
+                staged_p = alt_p
+
+        real_doc_content = ""
+        if staged_p.is_file():
+            ext = staged_p.suffix.lower()
+            if ext == ".pdf":
+                try:
+                    from pypdf import PdfReader
+                    r = PdfReader(str(staged_p))
+                    pages = [pg.extract_text() or "" for pg in r.pages]
+                    real_doc_content = "\n\n".join(f"### Trang {i+1}\n{t.strip()}" for i, t in enumerate(pages) if t.strip())
+                except Exception:
+                    pass
+            elif ext in (".docx", ".doc"):
+                try:
+                    import docx
+                    d = docx.Document(str(staged_p))
+                    real_doc_content = "\n\n".join(p.text.strip() for p in d.paragraphs if p.text.strip())
+                except Exception:
+                    pass
+            elif ext in (".xlsx", ".xls"):
+                try:
+                    import openpyxl
+                    wb = openpyxl.load_workbook(str(staged_p), data_only=True)
+                    lines = []
+                    for s in wb.worksheets:
+                        lines.append(f"## Bảng: {s.title}")
+                        for row in s.iter_rows(values_only=True):
+                            r_vals = [str(v).strip() if v is not None else "" for v in row]
+                            if any(r_vals):
+                                lines.append(" | ".join(r_vals))
+                    real_doc_content = "\n".join(lines)
+                except Exception:
+                    pass
+            else:
+                try:
+                    real_doc_content = staged_p.read_text(encoding="utf-8", errors="replace").strip()
+                except Exception:
+                    pass
+
+        extracted_content = real_doc_content
+        if not extracted_content and final:
+            extracted_content = final.strip()
+
+        if extracted_content or staged_p.is_file():
+            from datetime import datetime
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            kind_tag = "screenshot" if kind == "image" else "document"
+            os.makedirs(sources, exist_ok=True)
+            if not extracted_content.startswith("---"):
+                fm = f"---\ntype: source\nsource_kind: {kind_tag}\nstatus: unprocessed\ncreated: {today_str}\noriginal: {name}\n---\n\n"
+                body = (extracted_content.strip() or f"*(Tệp đính kèm {name} - không có lớp văn bản thô)*")
+                full_text = fm + body
+            else:
+                full_text = extracted_content
+
+            if "\\n" in full_text and "\n" not in full_text:
+                full_text = full_text.replace("\\n", "\n")
+
+            with open(md_path, "w", encoding="utf-8") as f:
+                f.write(full_text)
+
+            try:
+                if staged_p.exists() and attachments:
+                    os.makedirs(attachments, exist_ok=True)
+                    import shutil
+                    shutil.copy2(str(staged_p), os.path.join(attachments, os.path.basename(str(staged_p))))
+                if staged_p.exists():
+                    os.remove(str(staged_p))
+            except Exception:
+                pass
+            return {"ok": True, "md_path": md_path, "md_name": os.path.basename(md_path),
+                    "folder": os.path.basename(sources)}
+    except Exception as fb_err:
+        print(f"[ingest fallback error]: {fb_err}", file=sys.stderr)
+
+    return {"ok": False, "error": error_msg[:200] if error_msg else "Không tạo được .md", "raw": final[:200]}
 
 # Cấu trúc chuẩn Javis - kiểm tra khi mở vault
 # detect: regex khớp tên folder top-level (linh hoạt "06 - Sources" / "Sources")
@@ -11100,7 +11191,7 @@ async def path_exists(path: str = Query("", description="Đường dẫn tuyệt
 async def config():
     s = cfgmod.read_settings()
     return {
-        "workspace_name": s.get("workspace_name") or os.getenv("WORKSPACE_NAME", "Javis OS"),
+        "workspace_name": s.get("workspace_name") or os.getenv("WORKSPACE_NAME", "n3n OS"),
         "user_name": os.getenv("USER_NAME", "Bạn"),
         "tts_voice": os.getenv("TTS_VOICE", "en-US-EmmaMultilingualNeural"),
         "tts_rate": os.getenv("TTS_RATE", "+5%"),

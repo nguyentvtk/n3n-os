@@ -575,7 +575,41 @@ def _builtin_tools(mode, vault_root, include_ambient=False, hidden=None, lang=""
                     f"dùng vừa đính kèm vào khung chat.")
         if not p.is_file():
             return f"ERROR: không có file '{rel}'"
-        text = p.read_text(encoding="utf-8", errors="replace")
+        ext = p.suffix.lower()
+        if ext == ".pdf":
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(str(p))
+                pages = [page.extract_text() or "" for page in reader.pages]
+                text = "\n\n".join(f"--- Trang {i+1} ---\n{t}" for i, t in enumerate(pages) if t.strip())
+                if not text.strip():
+                    text = f"[Tệp PDF {p.name}: tệp dạng ảnh scan, không có lớp ký tự.]"
+            except Exception as e:
+                text = f"[Lỗi đọc tệp PDF {p.name}: {e}]"
+        elif ext in (".docx", ".doc"):
+            try:
+                import docx
+                doc = docx.Document(str(p))
+                paragraphs = [par.text for par in doc.paragraphs if par.text.strip()]
+                text = "\n\n".join(paragraphs)
+            except Exception as e:
+                text = f"[Lỗi đọc tệp Word {p.name}: {e}]"
+        elif ext in (".xlsx", ".xls"):
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(str(p), data_only=True)
+                lines = []
+                for sheet in wb.worksheets:
+                    lines.append(f"## Bảng: {sheet.title}")
+                    for row in sheet.iter_rows(values_only=True):
+                        row_vals = [str(v) if v is not None else "" for v in row]
+                        if any(row_vals):
+                            lines.append(" | ".join(row_vals))
+                text = "\n".join(lines)
+            except Exception as e:
+                text = f"[Lỗi đọc tệp Excel {p.name}: {e}]"
+        else:
+            text = p.read_text(encoding="utf-8", errors="replace")
         return text[:100_000] + (f"\n… [cắt, file dài {len(text):,} ký tự]" if len(text) > 100_000 else "")
 
     async def _ls(args):

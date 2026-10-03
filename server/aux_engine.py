@@ -171,8 +171,17 @@ def read_spec(settings: dict = None) -> dict:
     phần tiêu tiền lúc người ta không ngồi nhìn.
     """
     s = settings if settings is not None else cfgmod.read_settings()
-    aux = (s.get("model", {}) or {}).get("auxiliary") or {}
-    spec = {"provider": (aux.get("provider") or CLAUDE), "model": (aux.get("model") or "")}
+    m_cfg = s.get("model", {}) or {}
+    aux = m_cfg.get("auxiliary") or {}
+    prov = aux.get("provider")
+    model = (aux.get("model") or "").strip()
+    if not prov:
+        main_prov = (m_cfg.get("main") or {}).get("provider") or ""
+        if main_prov == "ollama-local" or any(model.startswith(prefix) for prefix in ("qwen", "deepseek", "gemma", "llama", "mistral")):
+            prov = "ollama-local"
+        else:
+            prov = CLAUDE
+    spec = {"provider": prov, "model": model}
     if spec["provider"] not in API_PROVIDERS:
         return spec                      # gói thuê bao: không tính tiền theo token, kệ phanh
     try:
@@ -246,6 +255,9 @@ def api_key_for(provider: str, settings: dict = None) -> str:
         return ""
     s = settings if settings is not None else cfgmod.read_settings()
     m = s.get("model", {}) or {}
+    if provider == "ollama-local":
+        # Có endpoint là chạy được; khoá rỗng thì gửi "local"
+        return (m.get(field) or "local") if (m.get("ollama_local_endpoint") or "").strip() else ""
     if provider == "openai-compat":
         # Có Base URL là chạy được; khoá rỗng thì gửi "none" (endpoint không đòi xác thực).
         return (m.get(field) or "none") if (m.get("openai_compat_base") or "").strip() else ""
@@ -364,7 +376,8 @@ class _ApiAuxEngine:
         tools, route = [], {}
         try:
             tools, route = await mcp_hub.discover_all(self.javis_mode or "full",
-                                                      vault_root=self.vault_root)
+                                                      vault_root=self.vault_root,
+                                                      staging=True)
         except Exception as e:
             print(f"[aux discover] {e}", file=sys.stderr)
 

@@ -93,7 +93,7 @@ def _sach(s: str) -> str:
     return "".join(ch for ch in s if ch.isprintable() and ch != ":").strip()
 
 
-def otpauth_uri(secret: str, ten_dang_nhap: str, ten_workspace: str = "Javis OS") -> str:
+def otpauth_uri(secret: str, ten_dang_nhap: str, ten_workspace: str = "n3n OS") -> str:
     """Chuỗi `otpauth://` để app Authenticator quét QR hoặc nhập tay.
 
     CHỈ kèm `algorithm`/`digits`/`period` khi chúng KHÁC mặc định. Ba giá trị SHA1 / 6 số /

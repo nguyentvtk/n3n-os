@@ -89,6 +89,7 @@ server/kanban.sqlite3*
 # execute_workflow giờ luôn chạm workflow_runs.get_store().
 server/workflow_runs.sqlite3*
 server/tg_brain.json
+server/tg_sid.json
 server/update_state.json
 server/logs/
 server/brain-trash/
